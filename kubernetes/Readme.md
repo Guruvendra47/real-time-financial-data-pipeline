@@ -34,7 +34,7 @@ In this project, I used Kubernetes to:
 
 ## Kubernetes Resources Used
 
-All manifests are stored inside the `kubernetes/` folder to keep the infrastructure version-controlled and reproducible.
+All files which i used in this project are stored inside the `kubernetes/` folder
 
 ### Files I created
 
