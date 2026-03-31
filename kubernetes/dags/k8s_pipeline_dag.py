@@ -11,7 +11,7 @@ default_args = {
 with DAG(
     dag_id="k8s_data_pipeline",
     default_args=default_args,
-    schedule_interval="@hourly",
+    schedule="@hourly",
     catchup=False,
 ) as dag:
 
