@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rtf-config       # Renamed from pipeline-config
+  namespace: rtf-data-pipline
+data:
+  ENVIRONMENT: "development"          # More descriptive key
+  S3_DATA_BUCKET: "real-time-financial-data-pipeline"
+  KAFKA_RAW_TOPIC: "stock-data-raw"   # Specific for the ingestion stage
+  KAFKA_BROKER: "kafka-service:9092"  # Added this for your pipeline
+
+

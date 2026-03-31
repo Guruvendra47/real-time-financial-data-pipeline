@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rtf-deployment
+  namespace: rtf-data-pipline
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rtf-first-app
+  template:
+    metadata:
+      labels:
+        app: rtf-first-app
+    spec:
+      containers:
+        - name: rtf-first-app-container
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+          # This is the "Professional Way" - it pulls ALL keys automatically
+          envFrom:
+            - configMapRef:
+                name: rtf-config
+            - secretRef:
+                name: rtf-secret
