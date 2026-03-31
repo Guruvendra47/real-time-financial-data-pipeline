@@ -1,15 +1,14 @@
-# 🚀 Kubernetes Setup – Real-Time Financial Data Pipeline
+# Kubernetes Setup — Real-Time Financial Data Pipeline
 
-This folder contains the complete Kubernetes setup for deploying and managing a **real-time financial data pipeline** using:
+This section documents how I designed and deployed the Kubernetes layer for my **real-time financial data pipeline project**.
 
-* Apache Airflow (Orchestration)
-* Kubernetes (Container orchestration)
-* Prometheus + Grafana (Monitoring)
-* ConfigMap & Secrets (Configuration management)
+The goal of this setup was to build a **production-style environment** that supports orchestration, scalability, monitoring, and secure configuration management.
 
 ---
 
-# 🧠 Architecture Overview
+## Project Overview
+
+The pipeline processes real-time financial data across multiple systems:
 
 ```text
 Kafka → Spark → S3 → Snowflake → dbt → Power BI
@@ -21,93 +20,136 @@ Kafka → Spark → S3 → Snowflake → dbt → Power BI
         Prometheus → Grafana
 ```
 
+### Why I used Kubernetes
+
+In this project, I used Kubernetes to:
+
+* manage containerized applications efficiently,
+* ensure high availability and automatic recovery,
+* scale workloads when needed,
+* separate configuration from application code,
+* and simulate a real-world production environment.
+
 ---
 
-# ⚙️ Prerequisites
+## Kubernetes Resources Used
 
-* Docker installed
-* Minikube installed
-* kubectl installed
-* Helm installed
+All manifests are stored inside the `kubernetes/` folder to keep the infrastructure version-controlled and reproducible.
+
+### Files I created
+
+* `deployment.yaml` → defines how my application runs (Pods, replicas)
+* `service.yaml` → exposes the application inside the cluster
+* `configmap.yaml` → stores non-sensitive configuration
+* `secret.yaml` → stores sensitive credentials securely
+* `airflow-values.yaml` → custom configuration for Airflow Helm deployment
+
+This structure allowed me to maintain a clean separation between application logic and infrastructure.
 
 ---
 
-# 🚀 1. Start Minikube
+## Environment Setup
 
-Start Kubernetes cluster locally:
+To run this locally, I used the following tools:
+
+* Docker
+* Minikube
+* kubectl
+* Helm
+
+### Why this setup
+
+I used Minikube to simulate a real Kubernetes cluster locally, which helped me test deployments before moving to a cloud environment.
+
+---
+
+## Step 1 — Starting the Cluster
 
 ```bash
-minikube start --driver=docker --memory=6144 --cpus=3
+minikube start --driver=docker --memory=8144 --cpus=4
+```
+
+I configured higher memory and CPU to support Airflow and monitoring tools.
+
+---
+
+## Step 2 — Namespace Design
+
+```bash
+kubectl create namespace rtf-data-pipeline
+```
+
+I used a dedicated namespace to isolate all resources related to this pipeline and keep the environment organized.
+
+---
+
+## Step 3 — Application Deployment
+
+```bash
+kubectl apply -f deployment.yaml -n rtf-data-pipeline
+```
+
+The Deployment ensures:
+
+* Pods are always running,
+* failed containers are restarted automatically,
+* and scaling can be handled easily.
+
+### Scaling Example
+
+```bash
+kubectl scale deployment rtf-deployment --replicas=3 -n rtf-data-pipeline
+```
+
+This allowed me to simulate increased workload handling.
+
+---
+
+## Step 4 — Service Exposure
+
+```bash
+kubectl apply -f service.yaml -n rtf-data-pipeline
+```
+
+I used a Service to provide a stable endpoint for accessing the application, since Pod IPs are dynamic.
+
+```bash
+minikube service rtf-service -n rtf-data-pipeline
 ```
 
 ---
 
-# 🧱 2. Create Namespace
+## Step 5 — Configuration Management
 
-Namespace ensures isolation and organization.
-
-```bash
-kubectl create namespace rtf-data-pipline
-kubectl get namespaces
-```
-
----
-
-# 📦 3. Deployment (Production Way)
-
-Deployment manages Pods automatically.
+### ConfigMap
 
 ```bash
-kubectl apply -f deployment.yaml
-kubectl get deployments -n rtf-data-pipline
-kubectl get pods -n rtf-data-pipline
+kubectl apply -f configmap.yaml -n rtf-data-pipeline
 ```
 
-### Scaling
+I used ConfigMap to store:
 
-```bash
-kubectl scale deployment rtf-deployment --replicas=3 -n rtf-data-pipline
-```
+* Kafka configuration
+* S3 details
+* pipeline environment variables
 
----
-
-# 🌐 4. Service (Expose Application)
-
-```bash
-kubectl apply -f service.yaml
-kubectl get services -n rtf-data-pipline
-minikube service rtf-service -n rtf-data-pipline
-```
-
----
-
-# 🔐 5. ConfigMap & Secret
-
-## ConfigMap (Non-sensitive)
-
-```bash
-kubectl apply -f configmap.yaml
-kubectl get configmap -n rtf-data-pipline
-```
-
-## Secret (Sensitive Data)
-
-Encode values:
+### Secret
 
 ```bash
 echo -n "password" | base64
+kubectl apply -f secret.yaml -n rtf-data-pipeline
 ```
 
-Apply:
+Secrets were used to securely store:
 
-```bash
-kubectl apply -f secret.yaml
-kubectl get secrets -n rtf-data-pipline
-```
+* Snowflake credentials
+* API keys
+
+This approach ensured no sensitive data was hardcoded in the application.
 
 ---
 
-# 🔗 6. Connect Config to Deployment
+## Step 6 — Injecting Configuration into Pods
 
 ```yaml
 envFrom:
@@ -117,60 +159,29 @@ envFrom:
       name: rtf-secret
 ```
 
-Verify:
-
-```bash
-kubectl exec -it <pod-name> -n rtf-data-pipline -- printenv
-```
+This allowed my containers to dynamically read configuration at runtime.
 
 ---
 
-# 🎯 7. Airflow Deployment (Helm)
+## Step 7 — Airflow Deployment (Helm)
 
-## Add Airflow Repo
+I used Helm to deploy Airflow because it simplifies managing multiple components.
 
 ```bash
 helm repo add apache-airflow https://airflow.apache.org
 helm repo update
-```
 
----
-
-## Install Airflow
-
-```bash
 helm install airflow apache-airflow/airflow \
   --namespace airflow \
   --create-namespace \
   -f airflow-values.yaml
 ```
 
----
-
-## Verify Pods
-
-```bash
-kubectl get pods -n airflow
-```
+This setup enabled orchestration of the entire pipeline.
 
 ---
 
-## Access Airflow UI
-
-```bash
-kubectl port-forward svc/airflow-api-server 8080:8080 -n airflow
-```
-
-Login:
-
-* Username: `admin`
-* Password: `admin`
-
----
-
-# 🔄 8. DAG Deployment via GitSync
-
-Airflow pulls DAGs from GitHub automatically.
+## Step 8 — DAG Integration using GitSync
 
 ```yaml
 dags:
@@ -179,14 +190,15 @@ dags:
     repo: https://github.com/Guruvendra47/real-time-financial-data-pipeline.git
     branch: main
     subPath: kubernetes/dags
-    wait: 60
 ```
+
+I configured GitSync so Airflow automatically pulls DAGs from GitHub, ensuring continuous updates without manual intervention.
 
 ---
 
-# 📊 9. Monitoring (Prometheus + Grafana)
+## Step 9 — Monitoring Setup
 
-## Install Monitoring Stack
+To monitor the system, I deployed Prometheus and Grafana using Helm.
 
 ```bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -197,93 +209,76 @@ helm install monitoring prometheus-community/kube-prometheus-stack \
   --create-namespace
 ```
 
+### Why monitoring was important in this project
+
+It allowed me to track:
+
+* system health
+* resource utilization
+* service availability
+
 ---
 
-## Access Grafana
+## Step 10 — Accessing Tools
+
+### Airflow
+
+```bash
+kubectl port-forward svc/airflow-api-server 8080:8080 -n airflow
+```
+
+### Grafana
 
 ```bash
 kubectl port-forward svc/monitoring-grafana 3000:80 -n monitoring
 ```
 
-URL:
-
-```
-http://localhost:3000
-```
-
----
-
-## Get Grafana Password
-
-```bash
-kubectl -n monitoring get secret monitoring-grafana -o jsonpath="{.data.admin-password}" | base64 -d
-```
-
----
-
-## Verify Prometheus
+### Prometheus
 
 ```bash
 kubectl port-forward svc/monitoring-kube-prometheus-prometheus 9090:9090 -n monitoring
 ```
 
-Query:
+---
 
-```
-up
-```
+## Step 11 — Running the Pipeline
+
+Inside Airflow:
+
+* enabled the DAG
+* triggered execution
+* monitored tasks in Graph View
+
+This validated the full orchestration flow of the pipeline.
 
 ---
 
-# 🧪 10. Run Airflow DAG
-
-* Enable DAG in UI
-* Click **Trigger DAG**
-* Monitor execution in Graph View
-
----
-
-# 🧹 Cleanup Commands
-
-## Reset Airflow
+## Cleanup
 
 ```bash
 helm uninstall airflow -n airflow
 kubectl delete namespace airflow
-```
-
----
-
-## Full Reset
-
-```bash
 minikube delete
 ```
 
 ---
 
-# 🔥 Key Learnings
+## Key Takeaways from This Project
 
-* Kubernetes manages containers efficiently
-* Airflow orchestrates data pipelines
-* ConfigMap & Secret separate config from code
-* Helm simplifies complex deployments
-* Prometheus + Grafana provide observability
+Through this implementation, I gained hands-on experience in:
 
----
-
-# 🎯 Real-World Skills Demonstrated
-
-* Container orchestration (Kubernetes)
-* Workflow orchestration (Airflow)
-* Infrastructure monitoring (Prometheus + Grafana)
-* Secure configuration management
-* End-to-end data pipeline design
+* Kubernetes deployment and scaling
+* Airflow orchestration using Helm
+* secure configuration management using ConfigMaps and Secrets
+* monitoring with Prometheus and Grafana
+* designing a production-style data pipeline environment
 
 ---
 
-# 🚀 Author
+## Author
 
 **Guruvendra Singh**
 
 ---
+
+This setup reflects a real-world architecture approach where scalability, monitoring, and maintainability are key considerations.
