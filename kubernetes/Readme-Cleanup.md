@@ -92,7 +92,7 @@ minikube delete
 ## 🔄 Recreate Cluster
 
 ```bash
-minikube start
+minikube start --driver=docker --memory=8144 --cpus=4
 ```
 
 ---
