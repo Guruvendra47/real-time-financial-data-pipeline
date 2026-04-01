@@ -144,7 +144,19 @@ To improve **scalability, organization, and security**.
 
 ---
 
-# **STEP 3 — Deploy Application Layer**
+# **STEP 3 — Set Default Namespace (Optional but Pro Move)**
+
+```bash
+kubectl config set-context --current --namespace=rtf-data-pipeline
+```
+
+### **Why this is useful**
+
+It is optional if you want you can use it because you don’t need to write `-n rtf-data-pipeline` every time.
+
+---
+
+# **STEP 4 — Deploy Application Layer**
 
 ### **Apply Configuration**
 
@@ -196,7 +208,7 @@ To provide a **stable endpoint** since Pods have dynamic IPs.
 
 ---
 
-# **STEP 4 — Deploy Airflow (Orchestration Layer)**
+# **STEP 5 — Deploy Airflow (Orchestration Layer)**
 
 ```bash id="u7zdsv"
 helm repo add apache-airflow https://airflow.apache.org
@@ -270,7 +282,7 @@ To ensure my **Airflow DAGs stay synced** with my GitHub repository in real time
 
 ---
 
-# **STEP 5 — Deploy Kafka (Streaming Layer)**
+# **STEP 6 — Deploy Kafka (Streaming Layer)**
 
 ```bash id="jknb8j"
 helm repo add bitnami https://charts.bitnami.com/bitnami
@@ -308,7 +320,7 @@ I used Kafka to enable **real-time streaming between systems**.
 
 ---
 
-# **STEP 6 — Spark Execution Model**
+# **STEP 7 — Spark Execution Model**
 
 ### **What I did**
 
@@ -339,7 +351,7 @@ minikube image load spark-job:1.0
 
 ---
 
-# **STEP 7 — dbt Execution**
+# **STEP 8 — dbt Execution**
 
 ### **What I did**
 
@@ -357,7 +369,7 @@ To ensure **modular and repeatable transformations**.
 
 ---
 
-# **STEP 8 — Monitoring Setup**
+# **STEP 9 — Monitoring Setup**
 
 ```bash id="9s7k3q"
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -388,7 +400,7 @@ To **monitor system health, track performance, and detect failures**.
 
 ---
 
-# **STEP 9 — Run the Pipeline**
+# **STEP 10 — Run the Pipeline**
 
 Inside **Airflow UI**:
 
