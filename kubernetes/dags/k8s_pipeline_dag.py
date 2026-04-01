@@ -21,7 +21,7 @@ with DAG(
         namespace="rtf-data-pipeline",
         image="spark-job:1.0",
         image_pull_policy="Never",
-        cmds=["spark-submit"],
+        cmds=["/opt/spark/bin/spark-submit"],
         arguments=["/opt/spark-app/spark-streaming-s3-aws.py"],
         is_delete_operator_pod=True,
         get_logs=True,
