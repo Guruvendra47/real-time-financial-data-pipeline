@@ -207,12 +207,9 @@ Provides a stable endpoint (Pods have dynamic IPs).
 helm repo add apache-airflow https://airflow.apache.org
 helm repo update
 
-helm install airflow apache-airflow/airflow \
-  -n airflow \
-  --create-namespace \
-  -f airflow-values.yaml
+helm install airflow apache-airflow/airflow -n airflow --create-namespace -f airflow-values.yaml
 ```
-
+* Here *-n* means namespace and *-f* means file and you can mention full name also instead just -n or -f
 ---
 
 ### Verify
