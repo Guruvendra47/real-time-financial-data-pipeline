@@ -24,7 +24,7 @@ with DAG(
         task_id="spark_job",
         name="spark-job",
         namespace="rtf-data-pipeline",
-        image="spark-job:12.0", 
+        image="spark-job:13.0", 
         image_pull_policy="Never",
         cmds=["/opt/spark/bin/spark-submit"],
         arguments=[
