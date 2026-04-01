@@ -46,13 +46,13 @@ with DAG(
         task_id="spark_job",
         name="spark-job",
         namespace="rtf-data-pipeline",
-        image="spark-job:6.0",
+        image="spark-job:7.0",
         image_pull_policy="Never",
 
         cmds=["/opt/spark/bin/spark-submit"],
         arguments=["/opt/spark-app/spark-streaming-s3-aws.py"],
 
-        # 🔥 THIS WAS MISSING
+        # aws creditionals
         secrets=[aws_access, aws_secret],
 
         # Optional env vars
