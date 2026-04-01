@@ -38,7 +38,7 @@ with DAG(
     schedule="@hourly",
     catchup=False,
 ) as dag:
-
+    
     # ==========================================
     # SPARK JOB
     # ==========================================
@@ -46,16 +46,18 @@ with DAG(
         task_id="spark_job",
         name="spark-job",
         namespace="rtf-data-pipeline",
-        image="spark-job:10.0",
+        image="spark-job:11.0",
         image_pull_policy="Never",
 
+        # Add the --packages flag here
         cmds=["/opt/spark/bin/spark-submit"],
-        arguments=["/opt/spark-app/spark-streaming-s3-aws.py"],
+        arguments=[
+            "--packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0",
+            "/opt/spark-app/spark-streaming-s3-aws.py"
+        ],
 
-        # aws creditionals
         secrets=[aws_access, aws_secret],
 
-        # Optional env vars
         env_vars={
             "AWS_DEFAULT_REGION": "us-east-1",
             "S3_BUCKET": "real-time-financial-data-pipeline",
@@ -65,6 +67,7 @@ with DAG(
         is_delete_operator_pod=True,
         get_logs=True,
     )
+
 
     # ==========================================
     # DBT JOB (LATER)
