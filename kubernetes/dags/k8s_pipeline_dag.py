@@ -3,35 +3,16 @@ from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperato
 from airflow.providers.cncf.kubernetes.secret import Secret
 from datetime import datetime
 
-# ==========================================
-# DEFAULT ARGS
-# ==========================================
 default_args = {
     "owner": "guruvendra",
     "start_date": datetime(2024, 1, 1),
     "retries": 1,
 }
 
-# ==========================================
-# KUBERNETES SECRETS (🔥 IMPORTANT)
-# ==========================================
-aws_access = Secret(
-    deploy_type="env",
-    deploy_target="AWS_ACCESS_KEY",
-    secret="rtf-secret",
-    key="AWS_ACCESS_KEY"
-)
+# Mapping secrets from Kubernetes to Env Vars
+aws_access = Secret(deploy_type="env", deploy_target="AWS_ACCESS_KEY", secret="rtf-secret", key="AWS_ACCESS_KEY")
+aws_secret = Secret(deploy_type="env", deploy_target="AWS_SECRET_KEY", secret="rtf-secret", key="AWS_SECRET_KEY")
 
-aws_secret = Secret(
-    deploy_type="env",
-    deploy_target="AWS_SECRET_KEY",
-    secret="rtf-secret",
-    key="AWS_SECRET_KEY"
-)
-
-# ==========================================
-# DAG DEFINITION
-# ==========================================
 with DAG(
     dag_id="k8s_data_pipeline",
     default_args=default_args,
@@ -39,39 +20,24 @@ with DAG(
     catchup=False,
 ) as dag:
     
-    # ==========================================
-    # SPARK JOB
-    # ==========================================
     spark_job = KubernetesPodOperator(
         task_id="spark_job",
         name="spark-job",
         namespace="rtf-data-pipeline",
-        image="spark-job:11.0",
+        image="spark-job:11.0", # Ensure you tag your build as 11.0
         image_pull_policy="Never",
-
-        # Add the --packages flag here
         cmds=["/opt/spark/bin/spark-submit"],
-        arguments=[
-            "--packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0",
-            "/opt/spark-app/spark-streaming-s3-aws.py"
-        ],
-
+        arguments=["/opt/spark-app/spark-streaming-s3-aws.py"],
         secrets=[aws_access, aws_secret],
-
         env_vars={
             "AWS_DEFAULT_REGION": "us-east-1",
             "S3_BUCKET": "real-time-financial-data-pipeline",
             "KAFKA_BROKER": "kafka:29092"
         },
-
         is_delete_operator_pod=True,
         get_logs=True,
     )
 
-
-    # ==========================================
-    # DBT JOB (LATER)
-    # ==========================================
     dbt_run = KubernetesPodOperator(
         task_id="dbt_run",
         name="dbt-job",
@@ -81,7 +47,4 @@ with DAG(
         is_delete_operator_pod=True,
     )
 
-    # ==========================================
-    # PIPELINE FLOW
-    # ==========================================
     spark_job >> dbt_run
