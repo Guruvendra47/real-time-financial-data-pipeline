@@ -105,7 +105,7 @@ helm version
 * **Docker** → builds container images
 * **Minikube** → local Kubernetes cluster
 * **kubectl** → interacts with Kubernetes
-* **Helm** → installs complex apps (Airflow, Kafka, monitoring)
+* **Helm** → installs complex apps like Apache Airflow, Kafka, and monitoring stacks
 
 ---
 
@@ -197,7 +197,7 @@ Exposes the application.
 
 ### Why
 
-Provides a stable endpoint (Pods change IP).
+Provides a stable endpoint (Pods have dynamic IPs).
 
 ---
 
@@ -233,13 +233,52 @@ Open: [http://localhost:8080](http://localhost:8080)
 
 ---
 
+### What
+
+Deploys Airflow.
+
 ### Why
 
-Apache Airflow
+Apache Airflow is used to:
 
-* orchestrates pipelines
-* schedules tasks
-* triggers Spark and dbt jobs
+* orchestrate pipelines
+* schedule tasks
+* trigger Spark and dbt jobs
+
+---
+
+## 🔁 DAG Synchronization (GitSync)
+
+### What
+
+GitSync automatically pulls DAG files from your GitHub repository into Airflow.
+
+### Where
+
+Configured inside `airflow-values.yaml`.
+
+### How
+
+```yaml
+dags:
+  gitSync:
+    enabled: true
+    repo: https://github.com/YOUR_REPO
+    branch: main
+    subPath: kubernetes/dags
+```
+
+### When to use
+
+Used when you want:
+
+* automatic DAG updates
+* version control for pipelines
+* no manual file copying
+
+### Why
+
+Ensures your Airflow DAGs stay synced with your GitHub repository in real time.
 
 ---
 
@@ -271,6 +310,10 @@ kafka.kafka.svc.cluster.local:9092
 
 ---
 
+### What
+
+Deploys Kafka.
+
 ### Why
 
 Kafka enables real-time streaming between systems.
@@ -281,12 +324,12 @@ Kafka enables real-time streaming between systems.
 
 ### What
 
-Spark processes streaming data.
+Apache Spark processes streaming data.
 
 ### How
 
-* Not deployed as a service
-* Runs as temporary pods
+* Not deployed as a permanent service
+* Runs as temporary Kubernetes pods
 * Triggered by Airflow
 
 ---
@@ -302,9 +345,7 @@ minikube image load spark-job:1.0
 
 ### Why
 
-Apache Spark
-
-* scalable processing
+* scalable distributed processing
 * efficient resource usage
 * runs only when needed
 
@@ -348,6 +389,10 @@ kubectl port-forward svc/monitoring-grafana 3000:80 -n monitoring
 ```
 
 ---
+
+### What
+
+Deploys monitoring tools.
 
 ### Why
 
@@ -413,7 +458,7 @@ This setup reflects a **real-world production architecture**, where:
 
 ---
 
-If you want next, I can turn this into:
-👉 **Interview explanation (easy to speak)**
-👉 **Resume bullets (impact-based)**
-👉 **Architecture diagram (visual for GitHub)** 🔥
+If you want next, I can help you make:
+👉 **Interview explanation (very easy to speak)**
+👉 **Resume bullets (high impact)**
+👉 **Architecture diagram (visual GitHub ready)** 🔥
