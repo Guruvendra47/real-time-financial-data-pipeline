@@ -7,7 +7,7 @@ This document outlines the **production-style Kubernetes architecture** used to 
 
 # 🧭 Architecture Overview
 
-```text
+```text id="h8v0g7"
 Kafka → Spark → S3 → Snowflake → dbt → Power BI
                      ↑
                   Airflow
@@ -22,16 +22,16 @@ Kafka → Spark → S3 → Snowflake → dbt → Power BI
 # 🧠 Production Design Principles
 
 * **Decoupled systems** → each component runs independently
-* **Namespace isolation** → better management and security
+* **Namespace isolation** → better organization and security
 * **On-demand processing** → Spark and dbt run as jobs
 * **Central orchestration** → Airflow controls execution
-* **Observability-first** → monitoring integrated
+* **Observability-first** → monitoring included
 
 ---
 
 # 🏗️ Namespace Strategy
 
-```text
+```text id="r5dtqc"
 rtf-data-pipeline  → Application layer  
 airflow            → Orchestration layer  
 kafka              → Streaming layer  
@@ -40,20 +40,78 @@ monitoring         → Observability layer
 
 ---
 
-# ⚙️ Prerequisites
+# ⚙️ Prerequisites & Tool Installation
 
-Install:
+Before starting, install the required tools.
 
-* Docker
-* Minikube
-* kubectl
-* Helm
+---
+
+## 🔧 Install Docker
+
+Download and install from: [https://www.docker.com/](https://www.docker.com/)
+
+Verify:
+
+```bash
+docker --version
+```
+
+---
+
+## 🔧 Install Minikube
+
+```bash id="3vh6ux"
+choco install minikube
+```
+
+Verify:
+
+```bash id="zspc3o"
+minikube version
+```
+
+---
+
+## 🔧 Install kubectl
+
+```bash id="v7rvwm"
+choco install kubernetes-cli
+```
+
+Verify:
+
+```bash id="tbo1sb"
+kubectl version --client
+```
+
+---
+
+## 🔧 Install Helm
+
+```bash id="b2ybz2"
+choco install kubernetes-helm
+```
+
+Verify:
+
+```bash id="q3nh4t"
+helm version
+```
+
+---
+
+### Why these tools
+
+* **Docker** → builds container images
+* **Minikube** → local Kubernetes cluster
+* **kubectl** → interacts with Kubernetes
+* **Helm** → installs complex apps (Airflow, Kafka, monitoring)
 
 ---
 
 # 🚀 STEP 1 — Start Kubernetes Cluster
 
-```bash
+```bash id="2v9n9n"
 minikube start --driver=docker --memory=8192 --cpus=4
 kubectl get nodes
 ```
@@ -64,13 +122,13 @@ Starts a local Kubernetes cluster.
 
 ### Why
 
-Simulates a real cloud environment (like EKS) for development and testing.
+Simulates a real cloud environment (like AWS EKS).
 
 ---
 
 # 🧱 STEP 2 — Create Namespaces
 
-```bash
+```bash id="sq3k6d"
 kubectl create namespace rtf-data-pipeline
 kubectl create namespace airflow
 kubectl create namespace kafka
@@ -83,7 +141,7 @@ Creates isolated environments for each system.
 
 ### Why
 
-Improves organization, scalability, and security.
+Improves scalability, organization, and security.
 
 ---
 
@@ -91,24 +149,24 @@ Improves organization, scalability, and security.
 
 ### Apply Configuration
 
-```bash
+```bash id="r2lfr5"
 kubectl apply -f configmap.yaml -n rtf-data-pipeline
 kubectl apply -f secret.yaml -n rtf-data-pipeline
 ```
 
 ### What
 
-Loads configuration and sensitive data into Kubernetes.
+Loads configuration and secrets.
 
 ### Why
 
-Keeps application code clean and secure.
+Separates configuration from application code.
 
 ---
 
 ### Deploy Application
 
-```bash
+```bash id="m11z1u"
 kubectl apply -f deployment.yaml -n rtf-data-pipeline
 ```
 
@@ -120,32 +178,32 @@ Creates application pods.
 
 Ensures:
 
-* automatic restarts
+* automatic recovery
+* scaling
 * high availability
-* scalability
 
 ---
 
 ### Expose Application
 
-```bash
+```bash id="j4q1i4"
 kubectl apply -f service.yaml -n rtf-data-pipeline
 minikube service rtf-service -n rtf-data-pipeline
 ```
 
 ### What
 
-Creates a stable endpoint for the application.
+Exposes the application.
 
 ### Why
 
-Pods have dynamic IPs, services provide consistent access.
+Provides a stable endpoint (Pods change IP).
 
 ---
 
 # 🎯 STEP 4 — Deploy Airflow (Orchestration Layer)
 
-```bash
+```bash id="jmm7vy"
 helm repo add apache-airflow https://airflow.apache.org
 helm repo update
 
@@ -155,31 +213,19 @@ helm install airflow apache-airflow/airflow \
   -f airflow-values.yaml
 ```
 
-### What
-
-Deploys Airflow using Helm.
-
-### Why
-
-Apache Airflow is used to:
-
-* orchestrate the pipeline
-* schedule tasks
-* trigger Spark and dbt jobs
-
 ---
 
-### Verify Deployment
+### Verify
 
-```bash
+```bash id="yjv6s7"
 kubectl get pods -n airflow
 ```
 
 ---
 
-### Access Airflow UI
+### Access UI
 
-```bash
+```bash id="kvf9le"
 kubectl port-forward svc/airflow-webserver 8080:8080 -n airflow
 ```
 
@@ -187,59 +233,67 @@ Open: [http://localhost:8080](http://localhost:8080)
 
 ---
 
+### Why
+
+Apache Airflow
+
+* orchestrates pipelines
+* schedules tasks
+* triggers Spark and dbt jobs
+
+---
+
 # 📡 STEP 5 — Deploy Kafka (Streaming Layer)
 
-```bash
+```bash id="ch7u79"
 helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update
 
 helm install kafka bitnami/kafka -n kafka
 ```
 
-### What
-
-Deploys Kafka cluster.
-
-### Why
-
-Kafka enables real-time data ingestion and streaming.
-
 ---
 
-### Verify Kafka
+### Verify
 
-```bash
+```bash id="wj8qmx"
 kubectl get pods -n kafka
 kubectl get svc -n kafka
 ```
 
 ---
 
-### Kafka Internal Access
+### Kafka Access (inside cluster)
 
-```text
+```text id="k1u5pk"
 kafka.kafka.svc.cluster.local:9092
 ```
 
 ---
 
-# ⚡ STEP 6 — Spark Execution Model (Important)
+### Why
+
+Kafka enables real-time streaming between systems.
+
+---
+
+# ⚡ STEP 6 — Spark Execution Model
 
 ### What
 
-Spark is used for data processing.
+Spark processes streaming data.
 
 ### How
 
-* Not deployed as a permanent service
-* Runs as temporary Kubernetes pods
+* Not deployed as a service
+* Runs as temporary pods
 * Triggered by Airflow
 
 ---
 
 ### Build Spark Image
 
-```bash
+```bash id="8h7m0s"
 docker build -t spark-job:1.0 .
 minikube image load spark-job:1.0
 ```
@@ -248,11 +302,11 @@ minikube image load spark-job:1.0
 
 ### Why
 
-Apache Spark:
+Apache Spark
 
-* processes large-scale data
+* scalable processing
+* efficient resource usage
 * runs only when needed
-* improves efficiency and scalability
 
 ---
 
@@ -260,23 +314,23 @@ Apache Spark:
 
 ### What
 
-Runs data transformation logic.
+Transforms data inside Snowflake.
 
 ### How
 
-* Packaged as a container
-* Triggered by Airflow
-* Executes as a Kubernetes pod
+* packaged as container
+* triggered by Airflow
+* runs as Kubernetes pod
 
 ### Why
 
-Ensures modular and repeatable data transformations.
+Ensures modular, repeatable transformations.
 
 ---
 
 # 📊 STEP 8 — Monitoring Setup
 
-```bash
+```bash id="m2yjlwm"
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
@@ -289,45 +343,41 @@ helm install monitoring prometheus-community/kube-prometheus-stack \
 
 ### Access Grafana
 
-```bash
+```bash id="r1tbbh"
 kubectl port-forward svc/monitoring-grafana 3000:80 -n monitoring
 ```
 
 ---
 
-### What
-
-Deploys monitoring tools.
-
 ### Why
 
-* tracks system health
-* monitors resource usage
-* helps debugging and alerting
+* monitor system health
+* track performance
+* detect failures
 
 ---
 
-# 🔄 STEP 9 — Running the Pipeline
+# 🔄 STEP 9 — Run the Pipeline
 
 Inside Airflow UI:
 
 1. Enable DAG
-2. Trigger execution
-3. Monitor tasks
+2. Trigger run
+3. Monitor execution
 
 ---
 
 ### Execution Flow
 
-```text
-Airflow → creates Spark pod → processes data → stores in S3 → triggers dbt
+```text id="8n93mf"
+Airflow → Spark pod → S3 → dbt → analytics output
 ```
 
 ---
 
 # 🧹 Cleanup
 
-```bash
+```bash id="qk4d4y"
 helm uninstall airflow -n airflow
 helm uninstall kafka -n kafka
 kubectl delete namespace airflow kafka monitoring rtf-data-pipeline
@@ -339,8 +389,8 @@ minikube delete
 # 💯 Key Takeaways
 
 * Kubernetes separates systems into independent layers
-* Airflow orchestrates workflows, not processing
-* Spark and dbt run as on-demand jobs
+* Airflow orchestrates workflows
+* Spark and dbt run on demand
 * Kafka handles streaming
 * Monitoring ensures reliability
 
@@ -363,7 +413,7 @@ This setup reflects a **real-world production architecture**, where:
 
 ---
 
-If you want next, I can help you convert this into:
-👉 Resume bullets
-👉 Architecture diagram
-👉 Interview explanation (STAR format) 🔥
+If you want next, I can turn this into:
+👉 **Interview explanation (easy to speak)**
+👉 **Resume bullets (impact-based)**
+👉 **Architecture diagram (visual for GitHub)** 🔥
