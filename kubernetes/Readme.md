@@ -1,13 +1,12 @@
-
 # 🚀 Kubernetes Setup — Real-Time Financial Data Pipeline
 
-This document outlines the **production-style Kubernetes architecture** used to deploy and orchestrate a real-time financial data pipeline.
+This document outlines the **production-style Kubernetes architecture** I used to deploy and orchestrate a real-time financial data pipeline.
 
 ---
 
 # 🧭 Architecture Overview
 
-```text id="h8v0g7"
+```text
 Kafka → Spark → S3 → Snowflake → dbt → Power BI
                      ↑
                   Airflow
@@ -21,17 +20,17 @@ Kafka → Spark → S3 → Snowflake → dbt → Power BI
 
 # 🧠 Production Design Principles
 
-* **Decoupled systems** → each component runs independently
-* **Namespace isolation** → better organization and security
-* **On-demand processing** → Spark and dbt run as jobs
-* **Central orchestration** → Airflow controls execution
-* **Observability-first** → monitoring included
+* I designed the system to be **decoupled** → each component runs independently
+* I used **namespace isolation** → for better organization and security
+* I implemented **on-demand processing** → Spark and dbt run as jobs
+* I centralized orchestration using Airflow
+* I followed an **observability-first approach** → monitoring is included
 
 ---
 
 # 🏗️ Namespace Strategy
 
-```text id="r5dtqc"
+```text
 rtf-data-pipeline  → Application layer  
 airflow            → Orchestration layer  
 kafka              → Streaming layer  
@@ -42,13 +41,13 @@ monitoring         → Observability layer
 
 # ⚙️ Prerequisites & Tool Installation
 
-Before starting, install the required tools.
+Before starting, I installed the required tools.
 
 ---
 
 ## 🔧 Install Docker
 
-Download and install from: [https://www.docker.com/](https://www.docker.com/)
+I downloaded and installed Docker from: [https://www.docker.com/](https://www.docker.com/)
 
 Verify:
 
@@ -60,13 +59,13 @@ docker --version
 
 ## 🔧 Install Minikube
 
-```bash id="3vh6ux"
+```bash
 choco install minikube
 ```
 
 Verify:
 
-```bash id="zspc3o"
+```bash
 minikube version
 ```
 
@@ -74,13 +73,13 @@ minikube version
 
 ## 🔧 Install kubectl
 
-```bash id="v7rvwm"
+```bash
 choco install kubernetes-cli
 ```
 
 Verify:
 
-```bash id="tbo1sb"
+```bash
 kubectl version --client
 ```
 
@@ -88,60 +87,60 @@ kubectl version --client
 
 ## 🔧 Install Helm
 
-```bash id="b2ybz2"
+```bash
 choco install kubernetes-helm
 ```
 
 Verify:
 
-```bash id="q3nh4t"
+```bash
 helm version
 ```
 
 ---
 
-### Why these tools
+### Why I used these tools
 
-* **Docker** → builds container images
-* **Minikube** → local Kubernetes cluster
-* **kubectl** → interacts with Kubernetes
-* **Helm** → installs complex apps like Apache Airflow, Kafka, and monitoring stacks
+* **Docker** → I used it to build container images
+* **Minikube** → I used it to run a local Kubernetes cluster
+* **kubectl** → I used it to interact with Kubernetes
+* **Helm** → I used it to install complex apps like Airflow, Kafka, and monitoring stacks
 
 ---
 
 # 🚀 STEP 1 — Start Kubernetes Cluster
 
-```bash id="2v9n9n"
+```bash
 minikube start --driver=docker --memory=8192 --cpus=4
 kubectl get nodes
 ```
 
-### What
+### What I did
 
-Starts a local Kubernetes cluster.
+I started a local Kubernetes cluster.
 
-### Why
+### Why I did it
 
-Simulates a real cloud environment (like AWS EKS).
+To simulate a real cloud environment (like AWS EKS).
 
 ---
 
 # 🧱 STEP 2 — Create Namespaces
 
-```bash id="sq3k6d"
+```bash
 kubectl create namespace rtf-data-pipeline
 kubectl create namespace airflow
 kubectl create namespace kafka
 kubectl create namespace monitoring
 ```
 
-### What
+### What I did
 
-Creates isolated environments for each system.
+I created isolated environments for each system.
 
-### Why
+### Why I did it
 
-Improves scalability, organization, and security.
+To improve scalability, organization, and security.
 
 ---
 
@@ -149,34 +148,34 @@ Improves scalability, organization, and security.
 
 ### Apply Configuration
 
-```bash id="r2lfr5"
+```bash
 kubectl apply -f configmap.yaml -n rtf-data-pipeline
 kubectl apply -f secret.yaml -n rtf-data-pipeline
 ```
 
-### What
+### What I did
 
-Loads configuration and secrets.
+I loaded configuration and secrets.
 
-### Why
+### Why I did it
 
-Separates configuration from application code.
+To separate configuration from application code.
 
 ---
 
 ### Deploy Application
 
-```bash id="m11z1u"
+```bash
 kubectl apply -f deployment.yaml -n rtf-data-pipeline
 ```
 
-### What
+### What I did
 
-Creates application pods.
+I created application pods.
 
-### Why
+### Why I did it
 
-Ensures:
+To ensure:
 
 * automatic recovery
 * scaling
@@ -186,35 +185,35 @@ Ensures:
 
 ### Expose Application
 
-```bash id="j4q1i4"
+```bash
 kubectl apply -f service.yaml -n rtf-data-pipeline
 minikube service rtf-service -n rtf-data-pipeline
 ```
 
-### What
+### What I did
 
-Exposes the application.
+I exposed the application.
 
-### Why
+### Why I did it
 
-Provides a stable endpoint (Pods have dynamic IPs).
+To provide a stable endpoint (since Pods have dynamic IPs).
 
 ---
 
 # 🎯 STEP 4 — Deploy Airflow (Orchestration Layer)
 
-```bash id="jmm7vy"
+```bash
 helm repo add apache-airflow https://airflow.apache.org
 helm repo update
 
 helm install airflow apache-airflow/airflow -n airflow --create-namespace -f airflow-values.yaml
 ```
-* Here *-n* means namespace and *-f* means file and you can mention full name also instead just -n or -f
+
 ---
 
 ### Verify
 
-```bash id="yjv6s7"
+```bash
 kubectl get pods -n airflow
 ```
 
@@ -222,7 +221,7 @@ kubectl get pods -n airflow
 
 ### Access UI
 
-```bash id="kvf9le"
+```bash
 kubectl port-forward svc/airflow-webserver 8080:8080 -n airflow
 ```
 
@@ -230,13 +229,13 @@ Open: [http://localhost:8080](http://localhost:8080)
 
 ---
 
-### What
+### What I did
 
-Deploys Airflow.
+I deployed Airflow.
 
-### Why
+### Why I did it
 
-Apache Airflow is used to:
+I used Airflow to:
 
 * orchestrate pipelines
 * schedule tasks
@@ -246,15 +245,15 @@ Apache Airflow is used to:
 
 ## 🔁 DAG Synchronization (GitSync)
 
-### What
+### What I did
 
-GitSync automatically pulls DAG files from your GitHub repository into Airflow.
+I configured GitSync to automatically pull DAG files from my GitHub repository into Airflow.
 
-### Where
+### Where I configured it
 
-Configured inside `airflow-values.yaml`.
+Inside `airflow-values.yaml`.
 
-### How
+### How I configured it
 
 ```yaml
 dags:
@@ -262,28 +261,28 @@ dags:
     enabled: true
     repo: "https://github.com/Guruvendra47/real-time-financial-data-pipeline.git"
     branch: "main"
-    subPath: "kubernetes/dags"   # change if needed
+    subPath: "kubernetes/dags"
     wait: 60
     recommendedProbeSetting: true
 ```
 
-### When to use
+### When I use it
 
-Used when you want:
+I use this when I want:
 
 * automatic DAG updates
 * version control for pipelines
 * no manual file copying
 
-### Why
+### Why I used it
 
-Ensures your Airflow DAGs stay synced with your GitHub repository in real time.
+To ensure my Airflow DAGs stay synced with my GitHub repository in real time.
 
 ---
 
 # 📡 STEP 5 — Deploy Kafka (Streaming Layer)
 
-```bash id="ch7u79"
+```bash
 helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update
 
@@ -294,7 +293,7 @@ helm install kafka bitnami/kafka -n kafka
 
 ### Verify
 
-```bash id="wj8qmx"
+```bash
 kubectl get pods -n kafka
 kubectl get svc -n kafka
 ```
@@ -303,46 +302,46 @@ kubectl get svc -n kafka
 
 ### Kafka Access (inside cluster)
 
-```text id="k1u5pk"
+```text
 kafka.kafka.svc.cluster.local:9092
 ```
 
 ---
 
-### What
+### What I did
 
-Deploys Kafka.
+I deployed Kafka.
 
-### Why
+### Why I did it
 
-Kafka enables real-time streaming between systems.
+I used Kafka to enable real-time streaming between systems.
 
 ---
 
 # ⚡ STEP 6 — Spark Execution Model
 
-### What
+### What I did
 
-Apache Spark processes streaming data.
+I used Apache Spark to process streaming data.
 
-### How
+### How I implemented it
 
-* Not deployed as a permanent service
-* Runs as temporary Kubernetes pods
-* Triggered by Airflow
+* I did not deploy Spark as a permanent service
+* I ran it as temporary Kubernetes pods
+* I triggered it using Airflow
 
 ---
 
 ### Build Spark Image
 
-```bash id="8h7m0s"
+```bash
 docker build -t spark-job:1.0 .
 minikube image load spark-job:1.0
 ```
 
 ---
 
-### Why
+### Why I did it
 
 * scalable distributed processing
 * efficient resource usage
@@ -352,25 +351,25 @@ minikube image load spark-job:1.0
 
 # 🔁 STEP 7 — dbt Execution
 
-### What
+### What I did
 
-Transforms data inside Snowflake.
+I used dbt to transform data inside Snowflake.
 
-### How
+### How I implemented it
 
-* packaged as container
+* packaged as a container
 * triggered by Airflow
-* runs as Kubernetes pod
+* runs as a Kubernetes pod
 
-### Why
+### Why I did it
 
-Ensures modular, repeatable transformations.
+To ensure modular and repeatable transformations.
 
 ---
 
 # 📊 STEP 8 — Monitoring Setup
 
-```bash id="m2yjlwm"
+```bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
@@ -383,21 +382,21 @@ helm install monitoring prometheus-community/kube-prometheus-stack \
 
 ### Access Grafana
 
-```bash id="r1tbbh"
+```bash
 kubectl port-forward svc/monitoring-grafana 3000:80 -n monitoring
 ```
 
 ---
 
-### What
+### What I did
 
-Deploys monitoring tools.
+I deployed monitoring tools.
 
-### Why
+### Why I did it
 
-* monitor system health
-* track performance
-* detect failures
+* to monitor system health
+* to track performance
+* to detect failures
 
 ---
 
@@ -405,15 +404,15 @@ Deploys monitoring tools.
 
 Inside Airflow UI:
 
-1. Enable DAG
-2. Trigger run
-3. Monitor execution
+1. I enable the DAG
+2. I trigger the run
+3. I monitor execution
 
 ---
 
 ### Execution Flow
 
-```text id="8n93mf"
+```text
 Airflow → Spark pod → S3 → dbt → analytics output
 ```
 
@@ -421,7 +420,7 @@ Airflow → Spark pod → S3 → dbt → analytics output
 
 # 🧹 Cleanup
 
-```bash id="qk4d4y"
+```bash
 helm uninstall airflow -n airflow
 helm uninstall kafka -n kafka
 kubectl delete namespace airflow kafka monitoring rtf-data-pipeline
@@ -432,11 +431,11 @@ minikube delete
 
 # 💯 Key Takeaways
 
-* Kubernetes separates systems into independent layers
-* Airflow orchestrates workflows
-* Spark and dbt run on demand
-* Kafka handles streaming
-* Monitoring ensures reliability
+* I used Kubernetes to separate systems into independent layers
+* I used Airflow to orchestrate workflows
+* I ran Spark and dbt on demand
+* I used Kafka for streaming
+* I implemented monitoring to ensure reliability
 
 ---
 
@@ -455,9 +454,4 @@ This setup reflects a **real-world production architecture**, where:
 * orchestration is centralized
 * infrastructure is observable
 
----
 
-If you want next, I can help you make:
-👉 **Interview explanation (very easy to speak)**
-👉 **Resume bullets (high impact)**
-👉 **Architecture diagram (visual GitHub ready)** 🔥
