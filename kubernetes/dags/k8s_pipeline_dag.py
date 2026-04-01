@@ -19,7 +19,7 @@ with DAG(
         task_id="spark_job",
         name="spark-job",
         namespace="rtf-data-pipeline",
-        image="spark-job:4.0",
+        image="spark-job:5.0",
         image_pull_policy="Never",
         cmds=["/opt/spark/bin/spark-submit"],
         arguments=["/opt/spark-app/spark-streaming-s3-aws.py"],
