@@ -18,17 +18,20 @@ with DAG(
     spark_job = KubernetesPodOperator(
         task_id="spark_job",
         name="spark-job",
-        namespace="data-platform",
-        image="your-spark-image",
-        cmds=["python", "spark_job.py"],
+        namespace="rtf-data-pipeline",
+        image="spark-job:1.0",
+        image_pull_policy="Never",
+        cmds=["spark-submit"],
+        arguments=["/opt/spark-app/spark-streaming-s3-aws.py"],
         is_delete_operator_pod=True,
+        get_logs=True,
     )
 
     dbt_run = KubernetesPodOperator(
         task_id="dbt_run",
         name="dbt-job",
-        namespace="data-platform",
-        image="your-dbt-image",
+        namespace="rtf-data-pipeline",
+        image="your-dbt-image",   # we will fix later
         cmds=["dbt", "run"],
         is_delete_operator_pod=True,
     )
