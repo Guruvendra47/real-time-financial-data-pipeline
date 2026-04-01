@@ -231,6 +231,12 @@ kubectl get pods -n airflow
 
 ### **Access UI**
 
+***airflow-api-server***
+
+```bash id="7zxte3"
+kubectl port-forward svc/airflow-api-server 8080:8080 -n airflow
+```
+***airflow-webserver***
 ```bash id="7zxte3"
 kubectl port-forward svc/airflow-webserver 8080:8080 -n airflow
 ```
