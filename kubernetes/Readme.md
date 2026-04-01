@@ -1,14 +1,11 @@
-# Kubernetes Setup — Real-Time Financial Data Pipeline
 
-This section documents how I designed and deployed the Kubernetes layer for my **real-time financial data pipeline project**.
+# 🚀 Kubernetes Setup — Real-Time Financial Data Pipeline
 
-The goal of this setup was to build a **production-style environment** that supports orchestration, scalability, monitoring, and secure configuration management.
+This document outlines the **production-style Kubernetes architecture** used to deploy and orchestrate a real-time financial data pipeline.
 
 ---
 
-## Project Overview
-
-The pipeline processes real-time financial data across multiple systems:
+# 🧭 Architecture Overview
 
 ```text
 Kafka → Spark → S3 → Snowflake → dbt → Power BI
@@ -20,265 +17,353 @@ Kafka → Spark → S3 → Snowflake → dbt → Power BI
         Prometheus → Grafana
 ```
 
-### Why I used Kubernetes
+---
 
-In this project, I used Kubernetes to:
+# 🧠 Production Design Principles
 
-* manage containerized applications efficiently,
-* ensure high availability and automatic recovery,
-* scale workloads when needed,
-* separate configuration from application code,
-* and simulate a real-world production environment.
+* **Decoupled systems** → each component runs independently
+* **Namespace isolation** → better management and security
+* **On-demand processing** → Spark and dbt run as jobs
+* **Central orchestration** → Airflow controls execution
+* **Observability-first** → monitoring integrated
 
 ---
 
-## Kubernetes Resources Used
+# 🏗️ Namespace Strategy
 
-All files which i used in this project are stored inside the `kubernetes/` folder
-
-### Files I created
-
-* `deployment.yaml` → defines how my application runs (Pods, replicas)
-* `service.yaml` → exposes the application inside the cluster
-* `configmap.yaml` → stores non-sensitive configuration
-* `secret.yaml` → stores sensitive credentials securely
-* `airflow-values.yaml` → custom configuration for Airflow Helm deployment
-
-This structure allowed me to maintain a clean separation between application logic and infrastructure.
+```text
+rtf-data-pipeline  → Application layer  
+airflow            → Orchestration layer  
+kafka              → Streaming layer  
+monitoring         → Observability layer  
+```
 
 ---
 
-## Environment Setup
+# ⚙️ Prerequisites
 
-To run this locally, I used the following tools:
+Install:
 
 * Docker
 * Minikube
 * kubectl
 * Helm
 
-### Why this setup
-
-I used Minikube to simulate a real Kubernetes cluster locally, which helped me test deployments before moving to a cloud environment.
-
 ---
 
-## Step 1 — Starting the Cluster
+# 🚀 STEP 1 — Start Kubernetes Cluster
 
 ```bash
-minikube start --driver=docker --memory=8144 --cpus=4
+minikube start --driver=docker --memory=8192 --cpus=4
+kubectl get nodes
 ```
 
-I configured higher memory and CPU to support Airflow and monitoring tools.
+### What
+
+Starts a local Kubernetes cluster.
+
+### Why
+
+Simulates a real cloud environment (like EKS) for development and testing.
 
 ---
 
-## Step 2 — Namespace Design
+# 🧱 STEP 2 — Create Namespaces
 
 ```bash
 kubectl create namespace rtf-data-pipeline
+kubectl create namespace airflow
+kubectl create namespace kafka
+kubectl create namespace monitoring
 ```
 
-I used a dedicated namespace to isolate all resources related to this pipeline and keep the environment organized.
+### What
+
+Creates isolated environments for each system.
+
+### Why
+
+Improves organization, scalability, and security.
 
 ---
 
-## Step 3 — Application Deployment
+# 📦 STEP 3 — Deploy Application Layer
+
+### Apply Configuration
+
+```bash
+kubectl apply -f configmap.yaml -n rtf-data-pipeline
+kubectl apply -f secret.yaml -n rtf-data-pipeline
+```
+
+### What
+
+Loads configuration and sensitive data into Kubernetes.
+
+### Why
+
+Keeps application code clean and secure.
+
+---
+
+### Deploy Application
 
 ```bash
 kubectl apply -f deployment.yaml -n rtf-data-pipeline
 ```
 
-The Deployment ensures:
+### What
 
-* Pods are always running,
-* failed containers are restarted automatically,
-* and scaling can be handled easily.
+Creates application pods.
 
-### Scaling Example
+### Why
 
-```bash
-kubectl scale deployment rtf-deployment --replicas=3 -n rtf-data-pipeline
-```
+Ensures:
 
-This allowed me to simulate increased workload handling.
+* automatic restarts
+* high availability
+* scalability
 
 ---
 
-## Step 4 — Service Exposure
+### Expose Application
 
 ```bash
 kubectl apply -f service.yaml -n rtf-data-pipeline
-```
-
-I used a Service to provide a stable endpoint for accessing the application, since Pod IPs are dynamic.
-
-```bash
 minikube service rtf-service -n rtf-data-pipeline
 ```
 
----
+### What
 
-## Step 5 — Configuration Management
+Creates a stable endpoint for the application.
 
-### ConfigMap
+### Why
 
-```bash
-kubectl apply -f configmap.yaml -n rtf-data-pipeline
-```
-
-I used ConfigMap to store:
-
-* Kafka configuration
-* S3 details
-* pipeline environment variables
-
-### Secret
-
-```bash
-echo -n "password" | base64
-kubectl apply -f secret.yaml -n rtf-data-pipeline
-```
-
-Secrets were used to securely store:
-
-* Snowflake credentials
-* API keys
-
-This approach ensured no sensitive data was hardcoded in the application.
+Pods have dynamic IPs, services provide consistent access.
 
 ---
 
-## Step 6 — Injecting Configuration into Pods
-
-```yaml
-envFrom:
-  - configMapRef:
-      name: rtf-config
-  - secretRef:
-      name: rtf-secret
-```
-
-This allowed my containers to dynamically read configuration at runtime.
-
----
-
-## Step 7 — Airflow Deployment (Helm)
-
-I used Helm to deploy Airflow because it simplifies managing multiple components.
+# 🎯 STEP 4 — Deploy Airflow (Orchestration Layer)
 
 ```bash
 helm repo add apache-airflow https://airflow.apache.org
 helm repo update
 
 helm install airflow apache-airflow/airflow \
-  --namespace airflow \
+  -n airflow \
   --create-namespace \
   -f airflow-values.yaml
 ```
 
-This setup enabled orchestration of the entire pipeline.
+### What
+
+Deploys Airflow using Helm.
+
+### Why
+
+Apache Airflow is used to:
+
+* orchestrate the pipeline
+* schedule tasks
+* trigger Spark and dbt jobs
 
 ---
 
-## Step 8 — DAG Integration using GitSync
+### Verify Deployment
 
-```yaml
-dags:
-  gitSync:
-    enabled: true
-    repo: https://github.com/Guruvendra47/real-time-financial-data-pipeline.git
-    branch: main
-    subPath: kubernetes/dags
+```bash
+kubectl get pods -n airflow
 ```
 
-I configured GitSync so Airflow automatically pulls DAGs from GitHub, ensuring continuous updates without manual intervention.
+---
+
+### Access Airflow UI
+
+```bash
+kubectl port-forward svc/airflow-webserver 8080:8080 -n airflow
+```
+
+Open: [http://localhost:8080](http://localhost:8080)
 
 ---
 
-## Step 9 — Monitoring Setup
+# 📡 STEP 5 — Deploy Kafka (Streaming Layer)
 
-To monitor the system, I deployed Prometheus and Grafana using Helm.
+```bash
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo update
+
+helm install kafka bitnami/kafka -n kafka
+```
+
+### What
+
+Deploys Kafka cluster.
+
+### Why
+
+Kafka enables real-time data ingestion and streaming.
+
+---
+
+### Verify Kafka
+
+```bash
+kubectl get pods -n kafka
+kubectl get svc -n kafka
+```
+
+---
+
+### Kafka Internal Access
+
+```text
+kafka.kafka.svc.cluster.local:9092
+```
+
+---
+
+# ⚡ STEP 6 — Spark Execution Model (Important)
+
+### What
+
+Spark is used for data processing.
+
+### How
+
+* Not deployed as a permanent service
+* Runs as temporary Kubernetes pods
+* Triggered by Airflow
+
+---
+
+### Build Spark Image
+
+```bash
+docker build -t spark-job:1.0 .
+minikube image load spark-job:1.0
+```
+
+---
+
+### Why
+
+Apache Spark:
+
+* processes large-scale data
+* runs only when needed
+* improves efficiency and scalability
+
+---
+
+# 🔁 STEP 7 — dbt Execution
+
+### What
+
+Runs data transformation logic.
+
+### How
+
+* Packaged as a container
+* Triggered by Airflow
+* Executes as a Kubernetes pod
+
+### Why
+
+Ensures modular and repeatable data transformations.
+
+---
+
+# 📊 STEP 8 — Monitoring Setup
 
 ```bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
 helm install monitoring prometheus-community/kube-prometheus-stack \
-  --namespace monitoring \
+  -n monitoring \
   --create-namespace
 ```
 
-### Why monitoring was important in this project
-
-It allowed me to track:
-
-* system health
-* resource utilization
-* service availability
-
 ---
 
-## Step 10 — Accessing Tools
-
-### Airflow
-
-```bash
-kubectl port-forward svc/airflow-api-server 8080:8080 -n airflow
-```
-
-### Grafana
+### Access Grafana
 
 ```bash
 kubectl port-forward svc/monitoring-grafana 3000:80 -n monitoring
 ```
 
-### Prometheus
+---
 
-```bash
-kubectl port-forward svc/monitoring-kube-prometheus-prometheus 9090:9090 -n monitoring
+### What
+
+Deploys monitoring tools.
+
+### Why
+
+* tracks system health
+* monitors resource usage
+* helps debugging and alerting
+
+---
+
+# 🔄 STEP 9 — Running the Pipeline
+
+Inside Airflow UI:
+
+1. Enable DAG
+2. Trigger execution
+3. Monitor tasks
+
+---
+
+### Execution Flow
+
+```text
+Airflow → creates Spark pod → processes data → stores in S3 → triggers dbt
 ```
 
 ---
 
-## Step 11 — Running the Pipeline
-
-Inside Airflow:
-
-* enabled the DAG
-* triggered execution
-* monitored tasks in Graph View
-
-This validated the full orchestration flow of the pipeline.
-
----
-
-## Cleanup
+# 🧹 Cleanup
 
 ```bash
 helm uninstall airflow -n airflow
-kubectl delete namespace airflow
+helm uninstall kafka -n kafka
+kubectl delete namespace airflow kafka monitoring rtf-data-pipeline
 minikube delete
 ```
 
 ---
 
-## Key Takeaways from This Project
+# 💯 Key Takeaways
 
-Through this implementation, I gained hands-on experience in:
-
-* Kubernetes deployment and scaling
-* Airflow orchestration using Helm
-* secure configuration management using ConfigMaps and Secrets
-* monitoring with Prometheus and Grafana
-* designing a production-style data pipeline environment
+* Kubernetes separates systems into independent layers
+* Airflow orchestrates workflows, not processing
+* Spark and dbt run as on-demand jobs
+* Kafka handles streaming
+* Monitoring ensures reliability
 
 ---
 
-## Author
+# 👤 Author
 
 **Guruvendra Singh**
 
 ---
 
-This setup reflects a real-world architecture approach where scalability, monitoring, and maintainability are key considerations.
+# 🏁 Final Note
+
+This setup reflects a **real-world production architecture**, where:
+
+* systems are modular
+* workloads are scalable
+* orchestration is centralized
+* infrastructure is observable
+
+---
+
+If you want next, I can help you convert this into:
+👉 Resume bullets
+👉 Architecture diagram
+👉 Interview explanation (STAR format) 🔥
