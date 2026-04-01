@@ -24,10 +24,14 @@ with DAG(
         task_id="spark_job",
         name="spark-job",
         namespace="rtf-data-pipeline",
-        image="spark-job:11.0", # Ensure you tag your build as 11.0
+        image="spark-job:12.0", 
         image_pull_policy="Never",
         cmds=["/opt/spark/bin/spark-submit"],
-        arguments=["/opt/spark-app/spark-streaming-s3-aws.py"],
+        arguments=[
+            # This tells Spark exactly where the Kafka engine is
+            "--jars", "/opt/spark/jars/spark-sql-kafka-0-10_2.12-3.5.1.jar,/opt/spark/jars/kafka-clients-3.5.1.jar,/opt/spark/jars/spark-token-provider-kafka-0-10_2.12-3.5.1.jar,/opt/spark/jars/commons-pool2-2.11.1.jar,/opt/spark/jars/hadoop-aws-3.3.4.jar,/opt/spark/jars/aws-java-sdk-bundle-1.12.262.jar",
+            "/opt/spark-app/spark-streaming-s3-aws.py"
+        ],
         secrets=[aws_access, aws_secret],
         env_vars={
             "AWS_DEFAULT_REGION": "us-east-1",
@@ -37,6 +41,7 @@ with DAG(
         is_delete_operator_pod=True,
         get_logs=True,
     )
+
 
     dbt_run = KubernetesPodOperator(
         task_id="dbt_run",
