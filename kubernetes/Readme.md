@@ -260,9 +260,11 @@ Configured inside `airflow-values.yaml`.
 dags:
   gitSync:
     enabled: true
-    repo: https://github.com/YOUR_REPO
-    branch: main
-    subPath: kubernetes/dags
+    repo: "https://github.com/Guruvendra47/real-time-financial-data-pipeline.git"
+    branch: "main"
+    subPath: "kubernetes/dags"   # change if needed
+    wait: 60
+    recommendedProbeSetting: true
 ```
 
 ### When to use
