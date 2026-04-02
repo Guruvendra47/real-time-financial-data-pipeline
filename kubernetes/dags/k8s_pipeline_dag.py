@@ -3,10 +3,6 @@ from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperato
 from airflow.providers.cncf.kubernetes.secret import Secret
 from datetime import datetime
 
-# ✅ FIXED IMPORT (IMPORTANT)
-from kubernetes.client import models as k8s
-
-
 default_args = {
     "owner": "guruvendra",
     "start_date": datetime(2024, 1, 1),
@@ -28,21 +24,6 @@ aws_secret = Secret(
     deploy_target="AWS_SECRET_KEY",
     secret="rtf-secret",
     key="AWS_SECRET_KEY"
-)
-
-# ==========================================
-# ✅ VOLUME (PERSISTENT CHECKPOINT)
-# ==========================================
-volume_mount = k8s.V1VolumeMount(
-    name="spark-checkpoint-volume",
-    mount_path="/checkpoint"
-)
-
-volume = k8s.V1Volume(
-    name="spark-checkpoint-volume",
-    persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
-        claim_name="spark-checkpoint-pvc"
-    )
 )
 
 # ==========================================
@@ -75,7 +56,6 @@ with DAG(
             "/opt/spark/jars/commons-pool2-2.11.1.jar,"
             "/opt/spark/jars/hadoop-aws-3.3.4.jar,"
             "/opt/spark/jars/aws-java-sdk-bundle-1.12.262.jar",
-
             "/opt/spark-app/spark-streaming-s3-aws.py"
         ],
 
@@ -89,9 +69,9 @@ with DAG(
             "KAFKA_BROKER": "rtf-kafka-kafka-bootstrap.kafka:9092"
         },
 
-        # ✅ CHECKPOINT FIX (IMPORTANT)
-        volumes=[volume],
-        volume_mounts=[volume_mount],
+        # ❌ REMOVE PVC COMPLETELY
+        # volumes=[]  ← not needed
+        # volume_mounts=[] ← not needed
 
         is_delete_operator_pod=True,
         get_logs=True,
