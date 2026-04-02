@@ -1,12 +1,11 @@
 from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.providers.cncf.kubernetes.secret import Secret
-
-# ✅ NEW IMPORTS (ADD THESE)
-from airflow.providers.cncf.kubernetes.volume import Volume
-from airflow.providers.cncf.kubernetes.volume_mount import VolumeMount
-
 from datetime import datetime
+
+# ✅ FIXED IMPORT (IMPORTANT)
+from kubernetes.client import models as k8s
+
 
 default_args = {
     "owner": "guruvendra",
@@ -15,7 +14,7 @@ default_args = {
 }
 
 # ==========================================
-# ✅ K8s Secrets → Env Variables (UNCHANGED)
+# ✅ K8s Secrets → Env Variables
 # ==========================================
 aws_access = Secret(
     deploy_type="env",
@@ -32,24 +31,23 @@ aws_secret = Secret(
 )
 
 # ==========================================
-# ✅ NEW: VOLUME + MOUNT (ADD THIS BLOCK)
+# ✅ VOLUME (PERSISTENT CHECKPOINT)
 # ==========================================
-volume_mount = VolumeMount(
+volume_mount = k8s.V1VolumeMount(
     name="spark-checkpoint-volume",
-    mount_path="/checkpoint",  
-    sub_path=None,
-    read_only=False
+    mount_path="/checkpoint"
 )
 
-volume = Volume(
+volume = k8s.V1Volume(
     name="spark-checkpoint-volume",
-    configs={
-        "persistentVolumeClaim": {
-            "claimName": "spark-checkpoint-pvc"
-        }
-    }
+    persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
+        claim_name="spark-checkpoint-pvc"
+    )
 )
 
+# ==========================================
+# DAG
+# ==========================================
 with DAG(
     dag_id="k8s_data_pipeline",
     default_args=default_args,
@@ -58,7 +56,7 @@ with DAG(
 ) as dag:
 
     # ==========================================
-    # SPARK JOB (UPDATED ONLY WHERE NEEDED)
+    # SPARK JOB
     # ==========================================
     spark_job = KubernetesPodOperator(
         task_id="spark_job",
@@ -81,15 +79,17 @@ with DAG(
             "/opt/spark-app/spark-streaming-s3-aws.py"
         ],
 
+        # ✅ Secrets
         secrets=[aws_access, aws_secret],
 
+        # ✅ ENV
         env_vars={
             "AWS_DEFAULT_REGION": "us-east-1",
             "S3_BUCKET": "real-time-financial-data-pipeline",
             "KAFKA_BROKER": "rtf-kafka-kafka-bootstrap.kafka:9092"
         },
 
-        # ✅ NEW (VERY IMPORTANT)
+        # ✅ CHECKPOINT FIX (IMPORTANT)
         volumes=[volume],
         volume_mounts=[volume_mount],
 
@@ -98,7 +98,7 @@ with DAG(
     )
 
     # ==========================================
-    # DBT JOB (UNCHANGED)
+    # DBT JOB
     # ==========================================
     dbt_run = KubernetesPodOperator(
         task_id="dbt_run",
