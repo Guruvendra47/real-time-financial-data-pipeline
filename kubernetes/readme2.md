@@ -101,11 +101,11 @@ trades
 ## 5️⃣ Build & Load Images
 
 ```bash
-docker build -t spark-job:latest ./spark
-docker build -t kafka-producer:latest ./producer
+docker build --no-cache -t spark-job:14.0 ./spark
+docker build --no-cache -t kafka-producer:14.0 ./producer
 
-minikube image load spark-job:latest
-minikube image load kafka-producer:latest
+minikube image load spark-job:14.0
+minikube image load kafka-producer:14.0
 ```
 
 ---
