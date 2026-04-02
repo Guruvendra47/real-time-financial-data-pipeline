@@ -210,7 +210,7 @@ To provide a **stable endpoint** since Pods have dynamic IPs.
 
 # **STEP 5 — Deploy Airflow (Orchestration Layer)**
 
-## ***first update DAG Synchronization (GitSync) then deploy Airflow***
+## ***first update DAG Synchronization (GitSync) in airflow-values.yaml then deploy Airflow***
 
 
 ```bash id="u7zdsv"
