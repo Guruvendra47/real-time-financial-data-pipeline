@@ -452,7 +452,7 @@ kubectl get kafka -n kafka
 rtf-kafka
 ```
 
-## **Delete Douplicate file if exists**
+## **Delete Duplicate file if exists**
 ```bash
 kubectl delete kafka rtf-kafka-01 -n kafka
 ```
@@ -558,6 +558,7 @@ kubectl rollout restart deployment rtf-app-deployment
 
 ## **STEP 6.3 — Create Kafka Topic**
 
+**Kafka Topic File**
 ```yaml
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
@@ -571,14 +572,73 @@ spec:
   replicas: 1
 ```
 
+**Apply**
 ```bash
 kubectl apply -f kafka-topic.yaml -n kafka
 ```
 
+**Verify**
+```bash
+kubectl get kafkatopics -n kafka
+```
+
+**You should see:**
+```text
+trades
+```
 ---
 
-## **STEP 6.4 — Deploy Kafka Producer**
+# **STEP 7 — Deploy Kafka Producer in kurbernetes(step-by-step)**
 
+**STEP 1 — Create Dockerfile for Producer**
+```Dockerfile
+FROM python:3.11-slim
+
+# Prevent log buffering (important for kubectl logs)
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Copy files
+COPY kafka-producer.py .
+COPY configs/ configs/
+
+# Install dependencies
+RUN pip install --no-cache-dir \
+    kafka-python-ng \
+    pyyaml
+
+# Run producer
+CMD ["python", "kafka-producer.py"]
+```
+**STEP 2 — Build Image and import to minikube**
+```bash
+docker build -t kafka-producer:1.0 .
+```
+**Note:** if you want to build any other folder then **docker build -t kafka-producer:1.0 .\kafka**
+
+```bash
+minikube image load kafka-producer:1.0
+```
+**(or)**
+**connect minikube to docker then build image**
+* Connect Docker to Minikube
+```bash
+minikube docker-env | Invoke-Expression
+```
+* Build image INSIDE Minikube
+```bash
+docker build -t kafka-producer:1.0 .
+```
+
+**STEP 3 — Verify image**
+```bash
+docker images
+```
+
+**STEP 4 — Create Kubernetes Deployment**
+
+**Producer-deployment File**
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -620,29 +680,44 @@ spec:
             - name: SYMBOLS
               value: "AAPL,TSLA,MSFT,BINANCE:BTCUSDT"
 ```
+**Note:** make sure in producer yaml file under env: you must use 
+```
+env:
+- name: KAFKA_BROKER
+  value: "rtf-kafka-kafka-bootstrap.kafka:9092"
+```
+for kafka name and value. 
+you must not use: kafka:29092 ❌ localhost:9092 ❌ 
+**why**
+- kafka:29092 ❌ (Docker style)
+- But Kubernetes uses:
+```text
+rtf-kafka-kafka-bootstrap.kafka:9092 ✅
+```
+so check you Yaml file if its in docker style change into kubernetes
+
+
+**STEP 5 — Apply**
 
 ```bash
 kubectl apply -f producer-deployment.yaml
 ```
-
----
-
-## **STEP 6.5 — Verify Kafka Data**
-
+**STEP 6 — Verify**
 ```bash
-kubectl run kafka-test -n kafka --rm -it --image=bitnami/kafka -- bash
+kubectl get pods -n rtf-data-pipeline
 ```
 
+**Check Logs**
 ```bash
-kafka-console-consumer.sh --bootstrap-server rtf-kafka-kafka-bootstrap.kafka:9092 --topic trades --from-beginning
+kubectl logs -l app=kafka-producer -n rtf-data-pipeline -f
 ```
-
----
----
-
+**Delete Pod**
+```bash
+kubectl delete pod -l app=kafka-producer -n rtf-data-pipeline
+```
 ### **What I did**
 
-I deployed **Kafka**.
+I deployed **Kafka Producer**.
 
 ### **Why I did it**
 
@@ -650,28 +725,88 @@ I used Kafka to enable **real-time streaming between systems**.
 
 ---
 
-# **STEP 7 — Spark Execution Model**
+# **STEP 8 — Deploy Spark Execution Model in kurbernetes(step-by-step)**
 
-### **What I did**
+**STEP 1 — Create Dockerfile for Producer**
+```Dockerfile
+# ==========================================
+# BASE IMAGE
+# ==========================================
+FROM apache/spark:3.5.1
 
-I used **Apache Spark** to process streaming data.
+USER root
 
-### **How I implemented it**
+WORKDIR /opt/spark-app
 
-* I did not deploy Spark as a **permanent service**
-* I ran it as **temporary Kubernetes pods**
-* I triggered it using **Airflow**
+RUN mkdir -p /opt/spark-app/configs
 
----
+# ==========================================
+# COPY APPLICATION FILES (FIXED FILENAME)
+# ==========================================
+COPY spark-streaming-s3-aws.py /opt/spark-app/spark-streaming-s3-aws.py
+COPY configs/ configs
 
-### **Build Spark Image**
+# ==========================================
+# INSTALL PYTHON DEPENDENCIES
+# ==========================================
+RUN pip install --no-cache-dir boto3 pandas pyyaml
 
-```bash id="t0txe7"
-docker build -t spark-job:1.0 .
-minikube image load spark-job:1.0
+# ==========================================
+# FIXED COMPLETE DEPENDENCIES
+# ==========================================
+RUN mkdir -p /opt/spark/jars && \
+    curl -L -o /opt/spark/jars/spark-sql-kafka-0-10_2.12-3.5.1.jar \
+    https://repo1.maven.org/maven2/org/apache/spark/spark-sql-kafka-0-10_2.12/3.5.1/spark-sql-kafka-0-10_2.12-3.5.1.jar && \
+    curl -L -o /opt/spark/jars/spark-token-provider-kafka-0-10_2.12-3.5.1.jar \
+    https://repo1.maven.org/maven2/org/apache/spark/spark-token-provider-kafka-0-10_2.12/3.5.1/spark-token-provider-kafka-0-10_2.12-3.5.1.jar && \
+    curl -L -o /opt/spark/jars/kafka-clients-3.5.1.jar \
+    https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/3.5.1/kafka-clients-3.5.1.jar && \
+    curl -L -o /opt/spark/jars/commons-pool2-2.11.1.jar \
+    https://repo1.maven.org/maven2/org/apache/commons/commons-pool2/2.11.1/commons-pool2-2.11.1.jar && \
+    curl -L -o /opt/spark/jars/hadoop-aws-3.3.4.jar \
+    https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar && \
+    curl -L -o /opt/spark/jars/aws-java-sdk-bundle-1.12.262.jar \
+    https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar
+    
+ENV PYTHONUNBUFFERED=1
+
+CMD ["/opt/spark/bin/spark-submit", "/opt/spark-app/spark-streaming-s3-aws.py"]
 ```
 
----
+**STEP 2 — Build Image and import to minikube**
+```bash
+docker build -t spark-job:1.0 .
+```
+
+**Note:** if you want to build any other folder then **docker build -t kafka-producer:1.0 .\kafka**
+
+```bash
+minikube image load spark-job:1.0
+```
+**(or)**
+**connect minikube to docker then build image**
+* Connect Docker to Minikube
+```bash
+minikube docker-env | Invoke-Expression
+```
+* Build image INSIDE Minikube
+```bash
+docker build -t spark-job:1.0 .
+```
+
+**STEP 5 — Verify image**
+```bash
+docker images
+```
+
+**Check Logs**
+```bash
+kubectl logs -l app=spark-job -n rtf-data-pipeline -f
+```
+**Delete Pod**
+```bash
+kubectl delete pod -l app=spark-job -n rtf-data-pipeline
+```
 
 ### **Why I did it**
 
@@ -681,7 +816,7 @@ minikube image load spark-job:1.0
 
 ---
 
-# **STEP 8 — dbt Execution**
+# **STEP 9 — dbt Execution**
 
 ### **What I did**
 
@@ -699,7 +834,7 @@ To ensure **modular and repeatable transformations**.
 
 ---
 
-# **STEP 9 — Monitoring Setup**
+# **STEP 10 — Monitoring Setup**
 
 ```bash id="9s7k3q"
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
