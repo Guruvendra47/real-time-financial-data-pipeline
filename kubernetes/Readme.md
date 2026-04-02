@@ -807,7 +807,6 @@ kubectl logs -l app=spark-job -n rtf-data-pipeline -f
 ```bash
 kubectl delete pod -l app=spark-job -n rtf-data-pipeline
 ```
-
 ### **Why I did it**
 
 * **scalable distributed processing**
