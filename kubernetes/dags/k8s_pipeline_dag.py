@@ -1,6 +1,11 @@
 from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.providers.cncf.kubernetes.secret import Secret
+
+# ✅ NEW IMPORTS (ADD THESE)
+from airflow.providers.cncf.kubernetes.volume import Volume
+from airflow.providers.cncf.kubernetes.volume_mount import VolumeMount
+
 from datetime import datetime
 
 default_args = {
@@ -10,7 +15,7 @@ default_args = {
 }
 
 # ==========================================
-# ✅ K8s Secrets → Env Variables (KEEP SAME)
+# ✅ K8s Secrets → Env Variables (UNCHANGED)
 # ==========================================
 aws_access = Secret(
     deploy_type="env",
@@ -26,6 +31,25 @@ aws_secret = Secret(
     key="AWS_SECRET_KEY"
 )
 
+# ==========================================
+# ✅ NEW: VOLUME + MOUNT (ADD THIS BLOCK)
+# ==========================================
+volume_mount = VolumeMount(
+    name="spark-checkpoint-volume",
+    mount_path="/checkpoint",  
+    sub_path=None,
+    read_only=False
+)
+
+volume = Volume(
+    name="spark-checkpoint-volume",
+    configs={
+        "persistentVolumeClaim": {
+            "claimName": "spark-checkpoint-pvc"
+        }
+    }
+)
+
 with DAG(
     dag_id="k8s_data_pipeline",
     default_args=default_args,
@@ -34,7 +58,7 @@ with DAG(
 ) as dag:
 
     # ==========================================
-    # SPARK JOB (FIXED)
+    # SPARK JOB (UPDATED ONLY WHERE NEEDED)
     # ==========================================
     spark_job = KubernetesPodOperator(
         task_id="spark_job",
@@ -58,11 +82,16 @@ with DAG(
         ],
 
         secrets=[aws_access, aws_secret],
+
         env_vars={
             "AWS_DEFAULT_REGION": "us-east-1",
             "S3_BUCKET": "real-time-financial-data-pipeline",
             "KAFKA_BROKER": "rtf-kafka-kafka-bootstrap.kafka:9092"
         },
+
+        # ✅ NEW (VERY IMPORTANT)
+        volumes=[volume],
+        volume_mounts=[volume_mount],
 
         is_delete_operator_pod=True,
         get_logs=True,
