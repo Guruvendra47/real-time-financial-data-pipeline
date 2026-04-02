@@ -301,7 +301,11 @@ To ensure my **Airflow DAGs stay synced** with my GitHub repository in real time
 ```bash
 kubectl apply -f https://strimzi.io/install/latest?namespace=kafka -n kafka
 ```
+## **Verify**
 
+```bash
+kubectl get pods -n kafka
+```
 ---
 
 ## **STEP 6.1 — Create Kafka Cluster**
