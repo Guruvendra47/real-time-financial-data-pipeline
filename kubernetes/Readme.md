@@ -306,10 +306,41 @@ kubectl apply -f https://strimzi.io/install/latest?namespace=kafka -n kafka
 ```bash
 kubectl get pods -n kafka
 ```
+### **You should see:**
+- strimzi-cluster-operator
+
+Status → Running
+
 ---
+
 
 ## **STEP 6.1 — Create Kafka Cluster**
 
+**Note:** If you using new version of Strimzi (0.46.0 or newer) which has deprecated the ZooKeeper and requires apply KafkaNodePools so apply Kafkanodepool before appling the kafka cluster:
+
+**KafkaNodePool file**
+```yaml
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: rtf-pool
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: rtf-kafka
+spec:
+  replicas: 1   # ⚡ FIXED (not 3)
+  roles:
+    - controller
+    - broker
+  storage:
+    type: ephemeral   # ⚡ FIXED
+```
+## **Apply**
+```bash
+kubectl apply -f kafka-node-pool.yaml -n kafka
+```
+
+**Kafka Cluster File**
 ```yaml
 apiVersion: kafka.strimzi.io/v1beta2
 kind: Kafka
@@ -341,14 +372,95 @@ spec:
     userOperator: {}
 ```
 
+## **Apply**
 ```bash
-kubectl apply -f kafka-cluster.yaml
+kubectl apply -f kafka-cluster.yaml -n kafka
+```
+**Expected output**
+```text
+kafka.kafka.strimzi.io/rtf-kafka created
 ```
 
----
+## **CHECK IF RESOURCE EXISTS**
+```bash
+kubectl get kafka -n kafka
+```
+
+**Expected output**
+```text
+rtf-kafka
+```
+
+## **Delete Douplicate file if exists**
+```bash
+kubectl delete kafka rtf-kafka-01 -n kafka
+```
+
+## **WATCH POD CREATION** 
+```bash
+kubectl get pods -n kafka -w
+```
+
+**After 1–2 minutes you should see:**
+- rtf-kafka-kafka-0
+- rtf-kafka-zookeeper-0
+
+## **Why**
+
+This creates:
+* Kafka broker
+* Zookeeper
+* Internal networking
+* Topic/user operators
+
+## **Verify**
+
+```bash
+kubectl get pods -n kafka
+```
+
+### **You should see:**
+- rtf-kafka-kafka-0
+- rtf-kafka-zookeeper-0
+- strimzi-cluster-operator
+
+All → Status → Running
 
 ## **STEP 6.2 — Kafka Service (IMPORTANT FIX)**
 
+Get Kafka Service
+```bash
+kubectl get svc -n kafka
+```
+
+IMPORTANT
+
+## **You will see something like:**
+```
+rtf-kafka-kafka-bootstrap   ClusterIP   ...   9092
+```
+
+## **Your Kafka endpoint becomes:**
+```
+rtf-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
+```
+
+## **UPDATE YOUR CONFIGMAP**
+Your current config:
+```
+kafka.kafka.svc.cluster.local:9092
+```
+
+## **Replace with:**
+```
+rtf-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
+```
+
+**Apply update:**
+```
+kubectl apply -f configmap.yaml
+kubectl rollout restart deployment rtf-app-deployment
+```
 ```text
 rtf-kafka-kafka-bootstrap.kafka:9092
 ```
