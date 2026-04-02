@@ -210,7 +210,7 @@ To provide a **stable endpoint** since Pods have dynamic IPs.
 
 # **STEP 5 — Deploy Airflow (Orchestration Layer)**
 
-## ***first update DAG Synchronization (GitSync) in airflow-values.yaml then deploy Airflow scroll down for dag Synchronization information***
+**Note:** first update DAG Synchronization (GitSync) in airflow-values.yaml then deploy Airflow scroll down for dag Synchronization information
 
 
 ```bash id="u7zdsv"
@@ -288,6 +288,67 @@ I use this when I want **automatic DAG updates, version control for pipelines, a
 ### **Why I used it**
 
 To ensure my **Airflow DAGs stay synced** with my GitHub repository in real time.
+
+---
+
+## **Create and Apply RBAC YAML**
+SIMPLE EXPLANATION
+
+- Airflow worker = a user inside Kubernetes
+- That user is NOT allowed to manage pods in rtf-data-pipeline
+
+- To fix this we have to give permission to airflow
+
+We will create:
+
+- Role → what actions allowed
+- RoleBinding → who gets permission
+  
+**Airflow-rbac file**
+
+```
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: airflow-role
+  namespace: rtf-data-pipeline
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "events"]
+    verbs: ["get", "list", "watch", "create", "delete", "patch", "update"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: airflow-rolebinding
+  namespace: rtf-data-pipeline
+subjects:
+  - kind: ServiceAccount
+    name: airflow-worker
+    namespace: airflow
+roleRef:
+  kind: Role
+  name: airflow-role
+  apiGroup: rbac.authorization.k8s.io
+```
+## **Apply**
+```bash
+kubectl apply -f airflow-rbac.yaml
+```
+
+**What this fixes**
+
+Now Airflow can:
+
+✔ Create pods
+✔ Monitor pods
+✔ Read logs
+✔ Patch/update pods
+✔ Read events
+
+👉 Basically full lifecycle control
 
 ---
 # **STEP 6 — Deploy Kafka (Streaming Layer)**
@@ -433,36 +494,64 @@ Get Kafka Service
 kubectl get svc -n kafka
 ```
 
-IMPORTANT
-
-## **You will see something like:**
+**You will see something like:**
 ```
 rtf-kafka-kafka-bootstrap   ClusterIP   ...   9092
 ```
 
-## **Your Kafka endpoint becomes:**
+**Your Kafka endpoint becomes:**
 ```
 rtf-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
 ```
 
-## **UPDATE YOUR CONFIGMAP**
-Your current config:
+
+**Update your configmap.yaml, airflow-dag.py(spark code) files**
+
+Your current config line:
 ```
-kafka.kafka.svc.cluster.local:9092
+KAFKA_BROKER: "kafka.kafka.svc.cluster.local:9092"
 ```
 
-## **Replace with:**
+Open your configmap.yaml and Replace with:
 ```
-rtf-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
+KAFKA_BROKER: "rtf-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092"
+```
+
+Your current airflow-dag line:
+
+```
+.option("kafka.bootstrap.servers", os.getenv("KAFKA_BROKER", "kafka:29092"))
+```
+Open your airflow-dag.py and Replace With:
+```
+.option("kafka.bootstrap.servers", os.getenv("KAFKA_BROKER", "rtf-kafka-kafka-bootstrap:9092"))
+```
+
+**Airflow DAG (Spark Code)**
+
+Update your DAG:
+```
+spark_job = KubernetesPodOperator(
+    task_id="spark_job",
+    name="spark-job",
+    namespace="rtf-data-pipeline",
+    image="spark-job:7.0",
+    cmds=["/opt/spark/bin/spark-submit"],
+    arguments=["/opt/spark-app/spark-streaming-s3-aws.py"],
+    env_vars={
+        "KAFKA_BROKER": "rtf-kafka-kafka-bootstrap.kafka:9092",  # 🔥 FIXED
+        "AWS_DEFAULT_REGION": "us-east-1",
+        "S3_BUCKET": "real-time-financial-data-pipeline",
+    },
+    is_delete_operator_pod=True,
+    get_logs=True,
+)
 ```
 
 **Apply update:**
 ```
 kubectl apply -f configmap.yaml
 kubectl rollout restart deployment rtf-app-deployment
-```
-```text
-rtf-kafka-kafka-bootstrap.kafka:9092
 ```
 
 ---
@@ -483,7 +572,7 @@ spec:
 ```
 
 ```bash
-kubectl apply -f kafka-topic.yaml
+kubectl apply -f kafka-topic.yaml -n kafka
 ```
 
 ---
