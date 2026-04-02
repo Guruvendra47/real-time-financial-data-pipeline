@@ -290,33 +290,149 @@ I use this when I want **automatic DAG updates, version control for pipelines, a
 To ensure my **Airflow DAGs stay synced** with my GitHub repository in real time.
 
 ---
-
 # **STEP 6 — Deploy Kafka (Streaming Layer)**
 
-```bash id="jknb8j"
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo update
+⚠️ I initially used Bitnami, but I switched to **Strimzi** for stability.
 
-helm install kafka bitnami/kafka -n kafka
+---
+
+## **STEP 6.0 — Install Strimzi Operator**
+
+```bash
+kubectl apply -f https://strimzi.io/install/latest?namespace=kafka -n kafka
 ```
 
 ---
 
-### **Verify**
+## **STEP 6.1 — Create Kafka Cluster**
 
-```bash id="t3cr18"
-kubectl get pods -n kafka
-kubectl get svc -n kafka
+```yaml
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: rtf-kafka
+  namespace: kafka
+spec:
+  kafka:
+    replicas: 1
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+    config:
+      offsets.topic.replication.factor: 1
+      transaction.state.log.replication.factor: 1
+      transaction.state.log.min.isr: 1
+    storage:
+      type: ephemeral
+
+  zookeeper:
+    replicas: 1
+    storage:
+      type: ephemeral
+
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+```
+
+```bash
+kubectl apply -f kafka-cluster.yaml
 ```
 
 ---
 
-### **Kafka Access (inside cluster)**
+## **STEP 6.2 — Kafka Service (IMPORTANT FIX)**
 
-```text id="gl85ka"
-kafka.kafka.svc.cluster.local:9092
+```text
+rtf-kafka-kafka-bootstrap.kafka:9092
 ```
 
+---
+
+## **STEP 6.3 — Create Kafka Topic**
+
+```yaml
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: trades
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: rtf-kafka
+spec:
+  partitions: 1
+  replicas: 1
+```
+
+```bash
+kubectl apply -f kafka-topic.yaml
+```
+
+---
+
+## **STEP 6.4 — Deploy Kafka Producer**
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-producer
+  namespace: rtf-data-pipeline
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: kafka-producer
+
+  template:
+    metadata:
+      labels:
+        app: kafka-producer
+
+    spec:
+      containers:
+        - name: kafka-producer
+          image: kafka-producer:1.0
+          imagePullPolicy: Never
+
+          env:
+            - name: KAFKA_BROKER
+              value: "rtf-kafka-kafka-bootstrap.kafka:9092"
+
+            - name: KAFKA_TOPIC
+              value: "trades"
+
+            - name: FINNHUB_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rtf-secret
+                  key: FINNHUB_API_KEY
+
+            - name: SYMBOLS
+              value: "AAPL,TSLA,MSFT,BINANCE:BTCUSDT"
+```
+
+```bash
+kubectl apply -f producer-deployment.yaml
+```
+
+---
+
+## **STEP 6.5 — Verify Kafka Data**
+
+```bash
+kubectl run kafka-test -n kafka --rm -it --image=bitnami/kafka -- bash
+```
+
+```bash
+kafka-console-consumer.sh --bootstrap-server rtf-kafka-kafka-bootstrap.kafka:9092 --topic trades --from-beginning
+```
+
+---
 ---
 
 ### **What I did**
